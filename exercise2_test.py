@@ -1,7 +1,11 @@
 import socket
 import re
+<<<<<<< HEAD
 import sys
 import random
+=======
+import time
+>>>>>>> 80780d7e8d8109c91ea36993ff89714687cc2092
 
 def create_container_contents(*escape_room_objects):
     return {obj.name: obj for obj in escape_room_objects}
@@ -114,6 +118,7 @@ class EscapeRoomCommandHandler:
             self._run_triggers(object, "open")
         self.output(open_result)
 
+<<<<<<< HEAD
     def _cmd_get(self, get_args):
         if len(get_args) == 0:
             get_result = "Get what?"
@@ -309,5 +314,15 @@ def main(args):
     
 if __name__=="__main__":
     main(sys.argv[1:])
+=======
+while True:
+	rec_msg = client.recv(1024)
+	if re.match(pattern,rec_msg.decode('utf-8')):
+		break
+	else:
+		print(rec_msg.decode('utf-8'))
+		client.send(input(">> ").encode('utf-8'))
+		time.sleep(0.25)
+>>>>>>> 80780d7e8d8109c91ea36993ff89714687cc2092
 
 

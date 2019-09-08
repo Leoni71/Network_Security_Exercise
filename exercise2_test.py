@@ -1,5 +1,6 @@
 import socket
 import re
+import time
 
 #client side
 client = socket.socket()
@@ -9,7 +10,7 @@ pattern = "You open the door"
 
 while True:
 	rec_msg = client.recv(1024)
-	if re.match(pattern,rec_msg.decode('uft-8'):
+	if re.match(pattern,rec_msg.decode('utf-8')):
 		break
 	else:
 		print(rec_msg.decode('utf-8'))

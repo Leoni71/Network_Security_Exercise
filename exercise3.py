@@ -341,16 +341,10 @@ def main(args):
     try:
         loop.run_forever()
     except KeyboardInterrupt:
-        pass
-
-    client.close()
-    loop.run_until_complete(client.close())
-    loop.close()
+        coro = loop.create_server(EchoServer,'',2345)
+        server = loop.run_until_complete(coro)
 
     #server side
-    loop = asyncio.get_event_loop()
-    coro = loop.create_server(EchoServer,'',2345)
-    server = loop.run_until_complete(coro)
     
     try:
         loop.run_forever()

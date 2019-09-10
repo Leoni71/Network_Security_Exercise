@@ -267,7 +267,6 @@ class EscapeRoomGame:
         chest.triggers.append(lambda obj, cmd, *args: (cmd == "open") and hammer.__setitem__("visible",True))
         chest.triggers.append(lambda obj, cmd, *args: (cmd == "open") and hammer.__setitem__("gettable",True))
         # ????? why these two __setitem__ need to be devided into two steps 
-        chest.triggers.append(lambda obj, cmd, *args: (cmd == "open") and room["container"].__setitem__("hammer",hammer))
         chest.triggers.append(lambda obj, cmd, *args: (cmd == "open") and chest.__setitem__("description",create_chest_description(chest,room)))
         # TODO, the chest needs some triggers. This is for a later exercise
         
@@ -307,11 +306,10 @@ def main(args):
         def connection_made(self, transport):
             self.transport = transport
             self.game = EscapeRoomGame(output = self.write)
-            game.create_game(cheat=("--cheat" in args))
-            game.start()
+            self.game.create_game(cheat=("--cheat" in args))
+            self.game.start()
 
         def data_received(self, data):
-            print(data)
             command = data.decode('utf-8').split("<EOL>\n")
             for c in command:
                 if c:
@@ -319,6 +317,7 @@ def main(args):
                     game.command(c)
 
         def write(self,msg):
+            msg += "<EOL>\n"
             self.transport.write(msg.encode('utf-8'))
     
     #server side

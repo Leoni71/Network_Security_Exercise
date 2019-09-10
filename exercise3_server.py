@@ -200,6 +200,7 @@ def create_mirror_description(mirror, room):
         description += ".. wait, there's a hairpin in your hair. Where did that come from?"
     return description
     
+# !!! add second argument
 def create_chest_description(chest,room):
     description = "An old chest. It looks worn, but it's still sturdy."
     if chest["locked"]:
@@ -242,7 +243,7 @@ class EscapeRoomGame:
         chest  = EscapeRoomObject("chest",  visible=True, openable=True, open=False, keyed=True, locked=True, unlockers=[hairpin])
         room   = EscapeRoomObject("room",   visible=True)
         player = EscapeRoomObject("player", visible=False, alive=True)
-        hammer = EscapeRoomObject("hammer", visible = False, gettable=False)
+        hammer = EscapeRoomObject("hammer", visible =True, gettable=True)
 
         # setup containers
         player["container"]= {}
@@ -263,11 +264,11 @@ class EscapeRoomGame:
         door.triggers.append(lambda obj, cmd, *args: (cmd == "open") and room["container"].__delitem__(player.name))
         room.triggers.append(lambda obj, cmd, *args: (cmd == "_post_command_") and advance_time(room, clock))
         # !!!!add a trigger for hammer in the chest
-        chest.triggers.append(lambda obj, cmd, *args: (cmd == "unlock") and chest.__setitem__("description",create_chest_description(chest,room)))
-        chest.triggers.append(lambda obj, cmd, *args: (cmd == "open") and hammer.__setitem__("visible",True))
-        chest.triggers.append(lambda obj, cmd, *args: (cmd == "open") and hammer.__setitem__("gettable",True))
+        #chest.triggers.append(lambda obj, cmd, *args: (cmd == "unlock") and chest.__setitem__("description",create_chest_description(chest,room)))
+        #chest.triggers.append(lambda obj, cmd, *args: (cmd == "open") and hammer.__setitem__("visible",True))
+        #chest.triggers.append(lambda obj, cmd, *args: (cmd == "open") and hammer.__setitem__("gettable",True))
         # ????? why these two __setitem__ need to be devided into two steps 
-        chest.triggers.append(lambda obj, cmd, *args: (cmd == "open") and chest.__setitem__("description",create_chest_description(chest,room)))
+        #chest.triggers.append(lambda obj, cmd, *args: (cmd == "open") and chest.__setitem__("description",create_chest_description(chest,room)))
         # TODO, the chest needs some triggers. This is for a later exercise
         
         self.room, self.player = room, player

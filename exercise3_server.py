@@ -321,7 +321,7 @@ def main(args):
             msg += "<EOL>\n"
             print(msg)
             self.transport.write(msg.encode('utf-8'))
-            if self.status == "escaped":
+            if self.game.status == "escaped":
                 raise KeyboardInterrupt
     #server side
     loop = asyncio.get_event_loop()

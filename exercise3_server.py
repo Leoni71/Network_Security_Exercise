@@ -314,7 +314,7 @@ def main(args):
             for c in command:
                 if c:
                     print(c)
-                    game.command(c)
+                    self.game.command(c)
 
         def write(self,msg):
             msg += "<EOL>\n"

@@ -297,43 +297,69 @@ class EscapeRoomGame:
             elif self.player.name not in self.room["container"]:
                 self.output("VICTORY! You escaped!")
                 self.status = "escaped"
-        
+
 def main(args):
+    # client class 
+    class EchoClient(asyncio.Protocol):
+        def __init__(self):
+            pass
+
+        def connection_made(self, transport):
+            self.transport = transport
+            self.transport.write(input(">> ").encode('utf-8'))
+
+        def data_received(self, data):
+            print(data.decode('utf-8'))
+
+    # server class
+    class EchoServer(asyncio.Protocol):
+        def __init__(self):
+            pass
+
+        def connection_made(self, transport):
+            self.transport = transport
+            self.game = EscapeRoomGame(output = self.write)
+            game.create_game(cheat=("--cheat" in args))
+            game.start()
+
+        def data_received(self, data):
+            print(data)
+            command = data.decode('utf-8').split("<EOL>\n")
+            for c in command:
+                if c:
+                    print(c)
+                    game.command(c)
+
+        def write(self,msg):
+            self.transport.write(msg.encode('utf-8'))
+
     #client side
-    s = socket.socket()
-    s.connect(("192.168.200.52",19002))
+    loop = asyncio.get_event_loop()
+    coro = loop.create_connection(EchoClient,'192.168.200.52',19003)
+    client = loop.run_until_complete(coro)
 
-    pattern = "You open the door"
+    try:
+        loop.run_forever()
+    except KeyboardInterrupt:
+        pass
 
-    while True:
-        rec_msg = s.recv(1024)
-        if re.match(pattern,rec_msg.decode('utf-8'):
-            break
-        else:
-            print(rec_msg.decode('utf-8'))
-            s.send(input(">> ").encode('utf-8'))
-            time.sleep(0.25)
-
-    print(rec_msg.decode('utf-8'))
+    client.close()
+    loop.run_until_complete(client.close())
+    loop.close()
 
     #server side
-    def send_msg(message):
-        message += "<EOL>\n"
-        print(message)
-        s.send(message.encode("utf-8"))
+    loop = asyncio.get_event_loop()
+    coro = loop.create_server(EchoServer,'',2345)
+    server = loop.run_until_complete(coro)
+    
+    try:
+        loop.run_forever()
+    except KeyboardInterrupt:
+        pass
 
-    game = EscapeRoomGame()
-    game.output = send_msg
-    game.create_game(cheat=("--cheat" in args))
-    game.start()
-    while game.status == "playing":
-        rec_msg = s.recv(1024)
-        #change from "command = input(">> ")"
-        command = rec_msg.decode('utf-8').split("<EOL>\n")
-        for c in command:
-            if c:
-                print(c)
-                game.command(c)
+    server.close()
+    loop.run_until_complete(server.wait_close())
+    loop.close()
         
 if __name__=="__main__":
     main(sys.argv[1:])

@@ -318,6 +318,7 @@ def main(args):
 
         def write(self,msg):
             msg += "<EOL>\n"
+            print(msg)
             self.transport.write(msg.encode('utf-8'))
     
     #server side

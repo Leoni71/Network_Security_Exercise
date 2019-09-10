@@ -321,7 +321,8 @@ def main(args):
             msg += "<EOL>\n"
             print(msg)
             self.transport.write(msg.encode('utf-8'))
-    
+            if self.status == "escaped":
+                raise KeyboardInterrupt
     #server side
     loop = asyncio.get_event_loop()
     coro = loop.create_server(EchoServer,'192.168.200.116',2345)
@@ -330,11 +331,9 @@ def main(args):
     try:
         loop.run_forever()
     except KeyboardInterrupt:
-        pass
+        server.close()
+        loop.run_until_complete(server.close())
+        loop.close()
 
-    server.close()
-    loop.run_until_complete(server.wait_close())
-    loop.close()
-        
 if __name__=="__main__":
     main(sys.argv[1:])

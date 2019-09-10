@@ -306,10 +306,10 @@ def main(args):
 
         def connection_made(self, transport):
             self.transport = transport
-            self.transport.write(input(">> ").encode('utf-8'))
 
         def data_received(self, data):
             print(data.decode('utf-8'))
+            self.transport.write(input(">> ").encode('utf-8'))
 
     # server class
     class EchoServer(asyncio.Protocol):

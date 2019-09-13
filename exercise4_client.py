@@ -1,4 +1,5 @@
 import asyncio
+import sys
 
 class EchoClient(asyncio.Protocol):
     def __init__(self):

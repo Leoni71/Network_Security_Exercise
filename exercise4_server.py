@@ -337,7 +337,9 @@ class EscapeRoomGame:
         #  - self.status, you'll need to stop when no longer playing
         #  - check if the flyingkey is still flying
         #  - of course, "move_flyingkey"
-        
+        while self.status == "playing":
+            move_flyingkey(flyingkey)
+            await asyncio.sleep(5)
         pass
     
     def start(self):
@@ -376,10 +378,37 @@ def flush_output(*args, **kargs):
     sys.stdout.flush()
         
 async def main(args):
+    #server class
+    class EchoServer(asyncio.Protocol):
+        def __init__(self):
+            pass
+
+        def connection_made(self, transport):
+            self.transport = transport
+            self.game = EscapeRoomGame(output = flush_output)
+            self.game.create_game(cheat=("--cheat" in args))
+            self.game.start()
+
+        def data_received(self, data):
+            command = data.decode('utf-8').split("<EOL>\n")
+            for c in command:
+                if c:
+                    print(c)
+                    self.game.command(c)
+
+        def write(self,msg):
+            msg += "<EOL>\n"
+            print(msg)
+            self.transport.write(msg.encode('utf-8'))
+            if self.game.status == "escaped":
+                raise KeyboardInterrupt
+
     loop = asyncio.get_event_loop()
+    """
     game = EscapeRoomGame(output=flush_output)
     game.create_game(cheat=("--cheat" in args))
     game.start()
+    """
     flush_output(">> ", end='')
     loop.add_reader(sys.stdin, game_next_input, game)
     await asyncio.wait([asyncio.ensure_future(a) for a in game.agents])

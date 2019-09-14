@@ -402,9 +402,9 @@ async def main(args):
 if __name__=="__main__":
     loop = asyncio.get_event_loop()
     coro = loop.create_server(EchoServer,'',2345)
-    server = loop.run_until_complete(coro)
 
     asyncio.ensure_future(main(sys.argv[1:]))
+    server = loop.run_until_complete(coro)
     asyncio.get_event_loop().run_forever()
     """
     #server class

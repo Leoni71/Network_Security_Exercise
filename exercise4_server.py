@@ -395,15 +395,18 @@ async def main(args):
                 if c:
                     print(c)
                     self.game.command(c)
-
+        """
         def write(self,msg):
             msg += "<EOL>\n"
             print(msg)
             self.transport.write(msg.encode('utf-8'))
             if self.game.status == "escaped":
                 raise KeyboardInterrupt
-
+        """
+    
     loop = asyncio.get_event_loop()
+    coro = loop.create_server(EchoServer,'192.168.200.116',2345)
+    #server = loop.run_until_complete(coro)
     """
     game = EscapeRoomGame(output=flush_output)
     game.create_game(cheat=("--cheat" in args))

@@ -378,16 +378,6 @@ def flush_output(*args, **kargs):
     sys.stdout.flush()
         
 async def main(args):
-    flush_output(">> ", end='')
-    game = EscapeRoomGame(output=flush_output)
-    loop.add_reader(sys.stdin, game_next_input, game)
-    game.create_game(cheat=("--cheat" in args))
-    game.start()
-
-    
-    await asyncio.wait([asyncio.ensure_future(a) for a in game.agents])
-        
-if __name__=="__main__":
     #server class
     class EchoServer(asyncio.Protocol):
         def __init__(self):
@@ -395,6 +385,7 @@ if __name__=="__main__":
 
         def connection_made(self, transport):
             self.transport = transport
+
         def data_received(self, data):
             command = data.decode('utf-8').split("<EOL>\n")
             for c in command:
@@ -403,6 +394,37 @@ if __name__=="__main__":
 
     loop = asyncio.get_event_loop()
     coro = loop.create_server(EchoServer,'',2345)
+    flush_output(">> ", end='')
+    game = EscapeRoomGame(output=flush_output)
+    loop.add_reader(sys.stdin, game_next_input, game)
+    game.create_game(cheat=("--cheat" in args))
+    game.start()
 
+    await asyncio.wait([asyncio.ensure_future(a) for a in game.agents])
+       
+if __name__=="__main__":
+    """
+    #server class
+    class EchoServer(asyncio.Protocol):
+        def __init__(self):
+            pass
+
+        def connection_made(self, transport):
+            self.transport = transport
+
+        def data_received(self, data):
+            command = data.decode('utf-8').split("<EOL>\n")
+            for c in command:
+                if c:
+                    print(c)
+
+    loop = asyncio.get_event_loop()
+    coro = loop.create_server(EchoServer,'',2345)
+    flush_output(">> ", end='')
+    game = EscapeRoomGame(output=flush_output)
+    loop.add_reader(sys.stdin, game_next_input, game)
+    game.create_game(cheat=("--cheat" in args))
+    game.start()
+    """
     asyncio.ensure_future(main(sys.argv[1:]))
     loop.run_forever()

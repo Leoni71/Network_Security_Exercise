@@ -405,7 +405,7 @@ async def main(args):
         """
     
     loop = asyncio.get_event_loop()
-    coro = loop.create_server(EchoServer,'127.0.0.1',2345)
+    coro = loop.create_server(EchoServer,'192.168.200.116',2345)
     #server = loop.run_until_complete(coro)
 
     flush_output(">> ", end='')

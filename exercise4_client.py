@@ -15,17 +15,17 @@ class EchoClient(asyncio.Protocol):
 def main(args):
     # client class 
     loop = asyncio.get_event_loop()
-    coro = loop.create_connection(EchoClient,'192.168.200.52',19004)
+    coro = loop.create_connection(EchoClient,'127.0.0.1',2345)
     client = loop.run_until_complete(coro)
 
     try:
-		loop.run_forever()
-	except KeyboardInterrupt:
-		pass
+        loop.run_forever()
+    except KeyboardInterrupt:
+        pass
 
-	client.close()
-	loop.run_until_complete(client.close())
-	loop.close()
+    client.close()
+    loop.run_until_complete(client.close())
+    loop.close()
 
 if __name__=="__main__":
     main(sys.argv[1:])

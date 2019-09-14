@@ -270,7 +270,32 @@ class EscapeRoomGame:
         self.command_handler = None
         self.agents = []
         self.status = "void"
-        
+    
+    def move_flyingkey(self, flyingkey):
+        locations = ["ceiling","floor","wall"]
+        locations.remove(flyingkey["location"])
+        random.shuffle(locations)
+        next_location = locations.pop(0)
+        old_location = flyingkey["location"]
+        flyingkey["location"] = next_location
+        flyingkey["description"] = create_flyingkey_description(flyingkey)
+        flyingkey["short_description"] = create_flyingkey_short_description(flyingkey)
+        flyingkey["hittable"] = next_location == "wall"
+        self.output("The {} flies from the {} to the {}".format(flyingkey.name, old_location, next_location))
+        for event in self.room.do_trigger("_post_command_"):
+            self.output(event)
+
+    async def flyingkey_agent(self, flyingkey):
+        # this is the part you, the student, fills in.
+        # you will probably need to use:
+        #  - asyncio.sleep (I recommend 5 seconds)
+        #  - self.status, you'll need to stop when no longer playing
+        #  - check if the flyingkey is still flying
+        #  - of course, "move_flyingkey"
+        while self.status == "playing":
+            self.move_flyingkey(flyingkey)
+            await asyncio.sleep(5)
+
     def create_game(self, cheat=False):
         clock =  EscapeRoomObject("clock",  visible=True, time=100)
         mirror = EscapeRoomObject("mirror", visible=True)
@@ -315,32 +340,6 @@ class EscapeRoomGame:
         self.command_handler = self.command_handler_class(room, player, self.output)
         self.agents.append(self.flyingkey_agent(flyingkey))
         self.status = "created"
-        
-    def move_flyingkey(self, flyingkey):
-        locations = ["ceiling","floor","wall"]
-        locations.remove(flyingkey["location"])
-        random.shuffle(locations)
-        next_location = locations.pop(0)
-        old_location = flyingkey["location"]
-        flyingkey["location"] = next_location
-        flyingkey["description"] = create_flyingkey_description(flyingkey)
-        flyingkey["short_description"] = create_flyingkey_short_description(flyingkey)
-        flyingkey["hittable"] = next_location == "wall"
-        self.output("The {} flies from the {} to the {}".format(flyingkey.name, old_location, next_location))
-        for event in self.room.do_trigger("_post_command_"):
-            self.output(event)
-        
-    async def flyingkey_agent(self, flyingkey):
-        # this is the part you, the student, fills in.
-        # you will probably need to use:
-        #  - asyncio.sleep (I recommend 5 seconds)
-        #  - self.status, you'll need to stop when no longer playing
-        #  - check if the flyingkey is still flying
-        #  - of course, "move_flyingkey"
-        while self.status == "playing":
-            move_flyingkey(flyingkey)
-            await asyncio.sleep(5)
-        pass
     
     def start(self):
         random.seed(0) # this should make everyone's random behave the same.
@@ -385,17 +384,17 @@ async def main(args):
 
         def connection_made(self, transport):
             self.transport = transport
+            """
             self.game = EscapeRoomGame(output = self.write)
             self.game.create_game(cheat=("--cheat" in args))
             self.game.start()
-
+            """
         def data_received(self, data):
             command = data.decode('utf-8').split("<EOL>\n")
             for c in command:
                 if c:
                     print(c)
-                    game.command(c)
-        
+        """
         def write(self,msg):
             msg += "<EOL>\n"
             msg = msg.encode('uft-8')
@@ -403,19 +402,19 @@ async def main(args):
             self.transport.write(flush_output(msg))
             if self.game.status == "escaped":
                 raise KeyboardInterrupt
-        
+        """
     
     loop = asyncio.get_event_loop()
-    coro = loop.create_server(EchoServer,'192.168.200.116',2345)
+    coro = loop.create_server(EchoServer,'127.0.0.1',2345)
     #server = loop.run_until_complete(coro)
-    """
+
+    flush_output(">> ", end='')
     game = EscapeRoomGame(output=flush_output)
+    loop.add_reader(sys.stdin, game_next_input, game)
     game.create_game(cheat=("--cheat" in args))
     game.start()
-    """
-    flush_output(">> ", end='')
-    loop.add_reader(sys.stdin, game_next_input, EchoServer.game)
-    await asyncio.wait([asyncio.ensure_future(a) for a in EchoServer.game.agents])
+    
+    await asyncio.wait([asyncio.ensure_future(a) for a in game.agents])
         
 if __name__=="__main__":
     asyncio.ensure_future(main(sys.argv[1:]))

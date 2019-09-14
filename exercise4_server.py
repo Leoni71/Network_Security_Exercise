@@ -385,7 +385,7 @@ async def main(args):
 
         def connection_made(self, transport):
             self.transport = transport
-            self.game = EscapeRoomGame(output = flush_output)
+            self.game = EscapeRoomGame(output = self.write)
             self.game.create_game(cheat=("--cheat" in args))
             self.game.start()
 
@@ -394,15 +394,16 @@ async def main(args):
             for c in command:
                 if c:
                     print(c)
-                    self.game.command(c)
-        """
+                    game.command(c)
+        
         def write(self,msg):
             msg += "<EOL>\n"
+            msg = msg.encode('uft-8')
             print(msg)
-            self.transport.write(msg.encode('utf-8'))
+            self.transport.write(flush_output(msg))
             if self.game.status == "escaped":
                 raise KeyboardInterrupt
-        """
+        
     
     loop = asyncio.get_event_loop()
     coro = loop.create_server(EchoServer,'192.168.200.116',2345)
@@ -413,8 +414,8 @@ async def main(args):
     game.start()
     """
     flush_output(">> ", end='')
-    loop.add_reader(sys.stdin, game_next_input, game)
-    await asyncio.wait([asyncio.ensure_future(a) for a in game.agents])
+    loop.add_reader(sys.stdin, game_next_input, EchoServer.game)
+    await asyncio.wait([asyncio.ensure_future(a) for a in EchoServer.game.agents])
         
 if __name__=="__main__":
     asyncio.ensure_future(main(sys.argv[1:]))

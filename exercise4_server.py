@@ -338,7 +338,7 @@ class EscapeRoomGame:
         
         self.room, self.player = room, player
         self.command_handler = self.command_handler_class(room, player, self.output)
-        #self.agents.append(self.flyingkey_agent(flyingkey))
+        self.agents.append(self.flyingkey_agent(flyingkey))
         self.status = "created"
     
     def start(self):
@@ -380,6 +380,7 @@ def flush_output(*args, **kargs):
 class EchoServer(asyncio.Protocol):
         def __init__(self):
             pass
+            self.game = game
 
         def connection_made(self, transport):
             self.transport = transport
@@ -402,7 +403,7 @@ async def main(args):
        
 if __name__=="__main__":
     loop = asyncio.get_event_loop()
-    coro = loop.create_server(EchoServer,'',2344)
+    coro = loop.create_server(EchoServer,'127.0.0.1',2344)
 
     asyncio.ensure_future(main(sys.argv[1:]))
     server = loop.run_until_complete(coro)

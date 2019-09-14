@@ -391,18 +391,20 @@ class EchoServer(asyncio.Protocol):
                     print(c)
 
 async def main(args):
-
-    loop = asyncio.get_event_loop()
-    coro = loop.create_server(EchoServer,'',2345)
-    flush_output(">> ", end='')
     game = EscapeRoomGame(output=flush_output)
     loop.add_reader(sys.stdin, game_next_input, game)
     game.create_game(cheat=("--cheat" in args))
+    flush_output(">> ", end='')
     game.start()
 
     await asyncio.wait([asyncio.ensure_future(a) for a in game.agents])
        
 if __name__=="__main__":
+    loop = asyncio.get_event_loop()
+    coro = loop.create_server(EchoServer,'',2345)
+
+    asyncio.ensure_future(main(sys.argv[1:]))
+    asyncio.get_event_loop().run_forever()
     """
     #server class
     class EchoServer(asyncio.Protocol):
@@ -426,5 +428,4 @@ if __name__=="__main__":
     game.create_game(cheat=("--cheat" in args))
     game.start()
     """
-    asyncio.ensure_future(main(sys.argv[1:]))
-    asyncio.get_event_loop().run_forever()
+    

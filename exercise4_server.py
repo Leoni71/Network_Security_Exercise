@@ -366,6 +366,7 @@ class EscapeRoomGame:
                 
 def game_next_input(game):
     input = sys.stdin.readline().strip()
+    print(input)
     game.command(input)
     if game.status != 'playing':
         asyncio.get_event_loop().stop()
@@ -405,14 +406,15 @@ async def main(args):
         """
     
     loop = asyncio.get_event_loop()
-    coro = loop.create_server(EchoServer,'192.168.200.116',2345)
-    #server = loop.run_until_complete(coro)
+    coro = loop.create_server(EchoServer,'',2345)
+    server = loop.run_until_complete(coro)
 
     flush_output(">> ", end='')
     game = EscapeRoomGame(output=flush_output)
     loop.add_reader(sys.stdin, game_next_input, game)
     game.create_game(cheat=("--cheat" in args))
     game.start()
+
     
     await asyncio.wait([asyncio.ensure_future(a) for a in game.agents])
         

@@ -376,10 +376,8 @@ def game_next_input(game):
 def flush_output(*args, **kargs):
     print(*args, **kargs)
     sys.stdout.flush()
-        
-async def main(args):
-    #server class
-    class EchoServer(asyncio.Protocol):
+   
+class EchoServer(asyncio.Protocol):
         def __init__(self):
             pass
 
@@ -391,6 +389,8 @@ async def main(args):
             for c in command:
                 if c:
                     print(c)
+
+async def main(args):
 
     loop = asyncio.get_event_loop()
     coro = loop.create_server(EchoServer,'',2345)

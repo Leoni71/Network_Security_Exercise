@@ -363,7 +363,44 @@ class EscapeRoomGame:
             elif self.player.name not in self.room["container"]:
                 self.output("VICTORY! You escaped!")
                 self.status = "escaped"
-                
+
+# server class
+class EchoServer(asyncio.Protocol):
+        def __init__(self):
+            pass
+
+        def connection_made(self, transport):
+            self.transport = transport
+            self.game = EscapeRoomGame(output = self.write)
+            self.game.create_game(cheat=("--cheat" in args))
+            self.game.start()
+
+        def data_received(self, data):
+            command = data.decode('utf-8').split("<EOL>\n")
+            for c in command:
+                if c:
+                    print(c)
+                    self.game.command(c)
+
+        def write(self,msg):
+            msg += "<EOL>\n"
+            print(msg)
+            self.transport.write(msg.encode('utf-8'))
+            if self.game.status == "escaped":
+                raise KeyboardInterrupt
+
+async def main(args):
+    loop = asyncio.get_event_loop()
+    coro = loop.create_server(EchoServer,'192.168.200.116',2344)
+
+    await asyncio.wait([asyncio.ensure_future(a) for a in game.agents])
+
+if __name__=="__main__":
+
+    asyncio.ensure_future(main(sys.args[1:]))  
+    server = loop.run_until_complete(coro)
+    asyncio.get_event_loop().run_forever() 
+"""                
 def game_next_input(game):
     input = sys.stdin.readline().strip()
     print(input)
@@ -406,6 +443,8 @@ if __name__=="__main__":
     asyncio.ensure_future(main(sys.argv[1:]))
     server = loop.run_until_complete(coro)
     asyncio.get_event_loop().run_forever()
+    """
+
     """
     #server class
     class EchoServer(asyncio.Protocol):

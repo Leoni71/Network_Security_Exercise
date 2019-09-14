@@ -395,11 +395,6 @@ if __name__=="__main__":
 
         def connection_made(self, transport):
             self.transport = transport
-            """
-            self.game = EscapeRoomGame(output = self.write)
-            self.game.create_game(cheat=("--cheat" in args))
-            self.game.start()
-            """
         def data_received(self, data):
             command = data.decode('utf-8').split("<EOL>\n")
             for c in command:
@@ -410,4 +405,4 @@ if __name__=="__main__":
     coro = loop.create_server(EchoServer,'',2345)
 
     asyncio.ensure_future(main(sys.argv[1:]))
-    asyncio.get_event_loop().run_forever()
+    loop.run_forever()

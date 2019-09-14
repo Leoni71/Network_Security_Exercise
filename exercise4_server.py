@@ -378,6 +378,16 @@ def flush_output(*args, **kargs):
     sys.stdout.flush()
         
 async def main(args):
+    flush_output(">> ", end='')
+    game = EscapeRoomGame(output=flush_output)
+    loop.add_reader(sys.stdin, game_next_input, game)
+    game.create_game(cheat=("--cheat" in args))
+    game.start()
+
+    
+    await asyncio.wait([asyncio.ensure_future(a) for a in game.agents])
+        
+if __name__=="__main__":
     #server class
     class EchoServer(asyncio.Protocol):
         def __init__(self):
@@ -395,29 +405,9 @@ async def main(args):
             for c in command:
                 if c:
                     print(c)
-        """
-        def write(self,msg):
-            msg += "<EOL>\n"
-            msg = msg.encode('uft-8')
-            print(msg)
-            self.transport.write(flush_output(msg))
-            if self.game.status == "escaped":
-                raise KeyboardInterrupt
-        """
-    
+
     loop = asyncio.get_event_loop()
     coro = loop.create_server(EchoServer,'',2345)
-    #server = loop.run_until_complete(coro)
 
-    flush_output(">> ", end='')
-    game = EscapeRoomGame(output=flush_output)
-    loop.add_reader(sys.stdin, game_next_input, game)
-    game.create_game(cheat=("--cheat" in args))
-    game.start()
-
-    
-    await asyncio.wait([asyncio.ensure_future(a) for a in game.agents])
-        
-if __name__=="__main__":
     asyncio.ensure_future(main(sys.argv[1:]))
     asyncio.get_event_loop().run_forever()

@@ -376,7 +376,11 @@ def game_next_input(game):
 def flush_output(*args, **kargs):
     print(*args, **kargs)
     sys.stdout.flush()
-   
+
+async def moveflyingkey(game):
+    
+    await asyncio.wait([asyncio.ensure_future(a) for a in game.agents])  
+
 class EchoServer(asyncio.Protocol):
         def __init__(self):
             pass
@@ -387,9 +391,10 @@ class EchoServer(asyncio.Protocol):
             self.game = EscapeRoomGame(output=self.write)
             self.game.create_game(cheat=("--cheat" in args))
             self.game.start()
+            print("Connection Made")
             asyncio.ensure_future(moveflyingkey(self.game))
             
-            print("Connection Made")
+            
 
         def data_received(self, data):
             command = data.decode('utf-8').split("<EOL>\n")
@@ -405,9 +410,7 @@ class EchoServer(asyncio.Protocol):
             if self.game.status == "escaped":
                 raise KeyboardInterrupt
 
-async def moveflyingkey(game):
-    
-    await asyncio.wait([asyncio.ensure_future(a) for a in game.agents])
+
        
 if __name__=="__main__":
     loop = asyncio.get_event_loop()

@@ -384,6 +384,11 @@ class EchoServer(asyncio.Protocol):
 
         def connection_made(self, transport):
             self.transport = transport
+            self.game = EscapeRoomGame(output=self.write)
+            self.game.create_game(cheat=("--cheat" in args))
+            self.game.start()
+            asyncio.ensure_future(moveflyingkey(self.game))
+            
             print("Connection Made")
 
         def data_received(self, data):
@@ -391,23 +396,31 @@ class EchoServer(asyncio.Protocol):
             for c in command:
                 if c:
                     print(c)
+                    self.game.command(c)
 
-async def main(args):
-    game = EscapeRoomGame(output=flush_output)
-    loop.add_reader(sys.stdin, game_next_input, game)
-    game.create_game(cheat=("--cheat" in args))
-    flush_output(">> ", end='')
-    game.start()
+        def write(self,msg):
+            msg += "<EOL>\n"
+            print(msg)
+            self.transport.write(msg.encode('utf-8'))
+            if self.game.status == "escaped":
+                raise KeyboardInterrupt
 
+async def moveflyingkey(game):
+    
     await asyncio.wait([asyncio.ensure_future(a) for a in game.agents])
        
 if __name__=="__main__":
     loop = asyncio.get_event_loop()
-    coro = loop.create_server(EchoServer,'127.0.0.1',2344)
-
-    asyncio.ensure_future(main(sys.argv[1:]))
+    coro = loop.create_server(EchoServer,'',2344)
     server = loop.run_until_complete(coro)
-    asyncio.get_event_loop().run_forever()
+
+    try:
+        loop.run_forever()
+    except KeyboardInterrupt:
+        server.close()
+        loop.run_until_complete(server.close())
+        loop.close()
+    
 
 
 """

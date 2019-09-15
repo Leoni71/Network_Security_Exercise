@@ -392,7 +392,8 @@ class EchoServer(asyncio.Protocol):
             self.game.create_game(cheat=("--cheat" in args))
             self.game.start()
             print("Connection Made")
-            asyncio.ensure_future(moveflyingkey(self.game))
+            self.loop = asyncio.get_event_loop()
+            self.loop.ensure_future(moveflyingkey(self.game))
             
             
 

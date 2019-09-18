@@ -384,16 +384,15 @@ async def moveflyingkey(game):
 class EchoServer(asyncio.Protocol):
         def __init__(self):
             pass
-            self.game = game
 
         def connection_made(self, transport):
             self.transport = transport
             self.game = EscapeRoomGame(output=self.write)
-            self.game.create_game(cheat=("--cheat" in args))
+            self.game.create_game()
             self.game.start()
             print("Connection Made")
             self.loop = asyncio.get_event_loop()
-            self.loop.ensure_future(moveflyingkey(self.game))
+            asyncio.ensure_future(moveflyingkey(self.game))
             
             
 
@@ -415,7 +414,7 @@ class EchoServer(asyncio.Protocol):
        
 if __name__=="__main__":
     loop = asyncio.get_event_loop()
-    coro = loop.create_server(EchoServer,'',2344)
+    coro = loop.create_server(EchoServer,'',2346)
     server = loop.run_until_complete(coro)
 
     try:

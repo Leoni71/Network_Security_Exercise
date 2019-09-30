@@ -417,6 +417,7 @@ class EchoServer(asyncio.Protocol):
 if __name__=="__main__":
     loop = asyncio.get_event_loop()
     coro = playground.create_server(EchoServer,'localhost',2345)
+    # 1)change loop into playground  2)change host="" or host='127.0.0.1' into localhost
     server = loop.run_until_complete(coro)
 
     try:

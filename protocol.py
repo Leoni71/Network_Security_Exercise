@@ -32,8 +32,7 @@ import binascii
 import bisect
 import uuid
 
-logger = logging.getLogger("playground.__connector__." + __name__)
-
+# Definition Part
 class CrapPacketType(PacketType):
     DEFINITION_IDENTIFIER = "crap"
     DEFINITION_VERSION = "1.0"
@@ -63,7 +62,6 @@ class ErrorPacket(CrapPacketType):
     DEFINITION_VERSION = "1.0"
     FIELDS = [("message", STRING),]
 
-
 class CRAPTransport(StackingTransport):
     def connect_protocol(self, protocol):
         self.protocol = protocol
@@ -72,6 +70,7 @@ class CRAPTransport(StackingTransport):
     def close(self):
         self.protocol.transport.close()
 
+logger = logging.getLogger("playground.__connector__." + __name__)
 class CRAP(StackingProtocol):
     def __init__(self, mode):
         logger.debug("---CrapTest Start: {}".format(mode))
@@ -80,103 +79,108 @@ class CRAP(StackingProtocol):
         self.handshake = True
         logger.debug("---CrapTest End: {}".format(self.mode))
 
-    def connection_made(self, transport):
-        logger.debug("---Crap Connection Made Start: {}".format(self.mode))
-        self.transport = transport
-        self.high_transport = CRAPTransport(transport)
-        self.high_transport.connect_protocol(self)
-
+    def data_handler(self, packet):
         if self.mode == "client":
-            logger.debug("---Client: Sent First Packet")
-
-            # create a secret key, a public key and a signing key
-            self.private1 = ec.generate_private_key(ec.SECP384R1(), default_backend())
-            self.public1 = self.private1.public_key()
-            self.signing1 = rsa.generate_private_key(public_exponent=65537, key_size=2048, backend=default_backend())
-
-            # get the certificates
-            root_cert = open('/home/student_20194/.playground/connectors/crap/20194_root.cert', 'rb').read()
-            self.certificates_r = cryptography.x509.load_pem_x509_certificate(root_cert, default_backend())            
-            team_cert = open('/home/student_20194/.playground/connectors/crap/csr_team4_signed.cert', 'rb').read()
-            self.certificates_team = cryptography.x509.load_pem_x509_certificate(team_cert, default_backend())
-            team_private_key = open('/home/student_20194/.playground/connectors/crap/key_team4.pem', 'rb').read()
-            self.private_team = serialization.load_pem_private_key(team_private_key,backend=default_backend(),password=b'passphrase')
-
-            subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, u"20194.4.4.4"),])
-            self.certificate_1 = x509.CertificateBuilder().subject_name(subject).issuer_name(self.team_cert.subject).public_key(self.signing1.public_key()).serial_number(x509.random_serial_number()).not_valid_before(datetime.datetime.utcnow()).not_valid_after(datetime.datetime.utcnow() + datetime.timedelta(days=10)).add_extension(x509.SubjectAlternativeName([x509.DNSName(u"20194.4.4.4")]),critical=False,).sign(self.private_team, hashes.SHA256(), default_backend())
-            cert1_bytes = self.certificate_1.public_bytes(Encoding.PEM)
-
-            # create a signature for the public key
-            pubkA_bytes = self.public1.public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
-            self.sigA = self.signkA.sign(pubkA_bytes,
-                                padding.PSS(mgf=padding.MGF1(hashes.SHA256()),
-                                salt_length=padding.PSS.MAX_LENGTH),
-                                hashes.SHA256())
-            self.nonceA = random.randint(0, 999999)
-
-            # create a cert chain
-            if self.rule == 4:
-                self.certChain = [bad_team_cert_bytes]
-            else:
-                self.certChain = [team_cert]
-            # create a new packet
-            new_packet = HandshakePacket(status=0,nonce=self.nonceA,pk=pubkA_bytes,signature=self.sigA,cert=cert1_bytes,certChain=self.certChain)
-            # transport the new packet
-            self.transport.write(new_packet.__serialize__())
-            logger.debug("---Client: Send First Packet END")
-
-        logger.debug("---Crap Connection Made End: {}".format(self.mode))
-
-    def data_received(self, buffer):
-        logger.debug("---data recv data")
-
-        self.deserializer.update(buffer)
-        for packet in self.deserializer.nextPackets():
-            print (packet)
-            if isinstance(packet, HandshakePacket) and self.handshake:
-                self.handshake_handler(packet)
-            elif isinstance(packet, DataPacket) and not self.handshake:
-                self.data_handler(packet)
-            elif isinstance(packet, ErrorPacket):
-                logger.debug("---ERROR PACKET:  ")
-                logger.debug(packet.message)
-
-    def connection_lost(self, exc):
-        logger.debug("---Connection Lost")
-        self.higherProtocol().connection_lost(exc)
+            decData = AESGCM(self.dec_A).decrypt(self.iv_B, packet.data, None)
+            self.iv_B = (int.from_bytes(self.iv_B, "big")+1).to_bytes(12,"big")
+        elif self.mode == "server":
+            decData = AESGCM(self.dec_B).decrypt(self.iv_A, packet.data, None)
+            self.iv_A = (int.from_bytes(self.iv_A, "big")+1).to_bytes(12,"big")
+        self.higherProtocol().data_received(decData)
 
     def send_data(self, data):
         if self.mode == "client":
-            encData = AESGCM(self.encA).encrypt(self.ivA, data, None)
-            self.ivA = (int.from_bytes(self.ivA, "big")+1).to_bytes(12,"big")
+            encData = AESGCM(self.enc_A).encrypt(self.iv_A, data, None)
+            self.iv_A = (int.from_bytes(self.iv_A, "big")+1).to_bytes(12, "big")
         elif self.mode == "server":
-            encData = AESGCM(self.encB).encrypt(self.ivB, data, None)
-            self.ivB = (int.from_bytes(self.ivB, "big")+1).to_bytes(12,"big")
-
-        new_packet = DataPacket(data=encData)
+            encData = AESGCM(self.enc_B).encrypt(self.iv_B, data, None)
+            self.iv_B = (int.from_bytes(self.iv_B, "big")+1).to_bytes(12, "big")
+        new_packet = DataPacket(data = encData)
         self.transport.write(new_packet.__serialize__())
-        logger.debug("CLIENT: CRAP OUT")
-
-    def data_handler(self, packet):
-        if self.mode == "client":
-            decData = AESGCM(self.decA).decrypt(self.ivB, packet.data, None)
-            self.ivB = (int.from_bytes(self.ivB, "big")+1).to_bytes(12,"big")
-        elif self.mode == "server":
-            decData = AESGCM(self.decB).decrypt(self.ivA, packet.data, None)
-            self.ivA = (int.from_bytes(self.ivA, "big")+1).to_bytes(12,"big")
-        self.higherProtocol().data_received(decData)
-
 
     def handshake_handler(self, packet):
+        if self.mode == "client":
+            if packet.status == 1:
+                self.certificate_2 = x509.load_pem_x509_certificate(packet.cert, default_backend())
+                # verify the signature
+                try:
+                    logger.debug("Verification")
+                    self.certificate_2.public_key().verify(packet.signature, packet.pk, padding.PSS(mgf = padding.MGF1(hashes.SHA256()), salt_length = padding.PSS.MAX_LENGTH), hashes.SHA256())
+                    self.certificate_2.public_key().verify(packet.nonceSignature, str(self.nonceA).encode("ASCII"), padding.PSS(mgf = padding.MGF1(hashes.SHA256()), salt_length = padding.PSS.MAX_LENGTH), hashes.SHA256())
+
+                    curve = self.certificate_2
+                    cur_addr = cert2_address
+                    for data in packet.certificate_chain:
+                        cert = x509.load_pem_x509_certificate(data, default_backend())
+                        cert.public_key().verify(curve.signature, curve.tbs_certificate_bytes, padding.PKCS1v15(), hashes.SHA256())
+                        cert_addr = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+
+                        for i in range(2):
+                            if cur_addr[i] != cert_addr[i]:
+                                raise Exception("unmatched perfix")
+                        curve = cert
+                    self.certificates_r.public_key().verify(cur.signature, cur.tbs_certificate_bytes, padding.PKCS1v15(), hashes.SHA256())
+                    certificates_r_addr = self.certificates_r.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+                    if certificates_r_addr[0] != cur_addr [0]:
+                        raise Exception("unmatched perfix")
+
+                except Exception as error:
+                    logger.debug("---Handshake Handler Error: {}, {}".format(self.mode, error))
+                    logger.debug("Verification Failed")
+                    error_packet = HandshakePacket(status=2)
+                    self.transport.write(error_packet.__serialize__())
+                    self.transport.close()
+                    return
+
+                logger.debug("Verification Succeed")
+
+                self.pubkB = load_pem_public_key(packet.pk, backend=default_backend())
+                # create a shared key
+                self.shared_key = self.private1.exchange(ec.ECDH(), self.pubkB)
+
+                # sign nonce B
+                self.nonceB = packet.nonce
+                nonceSignatureA = self.signkA.sign(str(self.nonceB).encode('ASCII'), padding.PSS(mgf = padding.MGF1(hashes.SHA256()), salt_length = padding.PSS.MAX_LENGTH), hashes.SHA256())
+                new_packet = HandshakePacket(status = 1, nonceSignature = nonceSignatureA)
+                self.transport.write(new_packet.__serialize__())
+
+                # generate keys and transfer to a higher protocol
+                digest = hashes.Hash(hashes.SHA256(), backend = default_backend())
+                digest.update(self.shared_key)
+                hash1 = digest.finalize()
+                self.iv_A = hash1[0:12]
+                self.iv_B = hash1[12:24]
+                digest = hashes.Hash(hashes.SHA256(), backend = default_backend())
+                digest.update(hash1)
+                hash2 = digest.finalize()
+                self.encA = hash2[0:16]
+                digest = hashes.Hash(hashes.SHA256(), backend = default_backend())
+                digest.update(hash2) 
+                hash3 = digest.finalize()
+                self.decA = hash3[0:16]
+
+                logger.debug(self.iv_A)
+                logger.debug(self.iv_B)
+
+
+                self.handshake = False
+                self.higherProtocol().connection_made(self.high_transport)
+
+                logger.debug("---Client: Sent Second Packet")
+                print("---Client: Handshake Success")
+            else:
+                error_packet = HandshakePacket(status=2)
+                self.transport.write(error_packet.__serialize__())
+                self.transport.close()
+
         if self.mode == "server":
             if packet.status == 0:
-                logger.debug("---Server: Send First Packet START")
+                logger.debug("---Server: Start Sending Packet")
 
                 root_cert = open('/home/student_20194/.playground/connectors/crap/20194_root.cert', 'rb').read()
                 team_cert = open('/home/student_20194/.playground/connectors/crap/csr_team4_signed.cert', 'rb').read()
                 self.certificates_r = cryptography.x509.load_pem_x509_certificate(root_cert, default_backend())
                 self.certificates_team = cryptography.x509.load_pem_x509_certificate(team_cert, default_backend())
-
                 self.certA = x509.load_pem_x509_certificate(packet.cert, default_backend())
 
                 # verify the signature
@@ -206,12 +210,8 @@ class CRAP(StackingProtocol):
                         for i in range(2):
                             if cur_addr[i] != cert_addr[i]:
                                 raise Exception("unmatched perfix")
-
                         cur = cert
-                    self.certificates_r.public_key().verify(cur.signature, cur.tbs_certificate_bytes,
-                            padding.PKCS1v15(),
-                            hashes.SHA256())
-
+                    self.certificates_r.public_key().verify(cur.signature, cur.tbs_certificate_bytes, padding.PKCS1v15(), hashes.SHA256())
                     certificates_r_addr = self.certificates_r.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
                     if certificates_r_addr[0] != cur_addr [0]:
                         raise Exception("unmatched perfix")
@@ -241,12 +241,8 @@ class CRAP(StackingProtocol):
                 self.certificates_r = cryptography.x509.load_pem_x509_certificate(root_cert, default_backend())
                 self.certificates_team = cryptography.x509.load_pem_x509_certificate(team_cert, default_backend())
                 self.private_team = serialization.load_pem_private_key(team_private_key,password=b'passphrase',backend=default_backend())
-                subject = x509.Name([x509.NameAttribute(NameOID.COUNTRY_NAME, u"US"),
-                    x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, u"Maryland"),
-                    x509.NameAttribute(NameOID.LOCALITY_NAME, u"Baltimore"),
-                    x509.NameAttribute(NameOID.ORGANIZATION_NAME, u"Team 4"),
-                    x509.NameAttribute(NameOID.COMMON_NAME, u"20194.4.4.4"),
-                ])
+                
+                subject = x509.Name([x509.NameAttribute(NameOID.COUNTRY_NAME, u"US"), x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, u"Maryland"), x509.NameAttribute(NameOID.LOCALITY_NAME, u"Baltimore"), x509.NameAttribute(NameOID.ORGANIZATION_NAME, u"Team 4"), x509.NameAttribute(NameOID.COMMON_NAME, u"20194.4.4.4"),])
                 self.certB = x509.CertificateBuilder().subject_name(
                     subject
                 ).issuer_name(
@@ -273,46 +269,39 @@ class CRAP(StackingProtocol):
                                     salt_length=padding.PSS.MAX_LENGTH),
                                     hashes.SHA256())
 
-                # create a challenge (256 bits) and a signature for this challenge
-                # self.nonceB = uuid.uuid4().bytes + uuid.uuid4().bytes
                 self.nonceA = packet.nonce
                 self.nonceBSignature = self.signkB.sign(str(self.nonceA).encode('ASCII'),
                                                     padding.PSS(mgf=padding.MGF1(hashes.SHA256()),
                                                     salt_length=padding.PSS.MAX_LENGTH),
                                                     hashes.SHA256())
 
-                # self.nonceB = int.from_bytes(uuid.uuid4().bytes + uuid.uuid4().bytes, "little")
-                # self.nonceB = uuid.uuid4().int
-                self.nonceB = random.randint(0, 999999)
-                # create a new packet
+                self.nonceB = random.randint(0,2**32)
                 new_packet = HandshakePacket(status=1,nonce=self.nonceB,
                                             nonceSignature=self.nonceBSignature,
                                             pk=pubkB_bytes,
                                             signature=self.sigB,
                                             cert=certB_bytes,
                                             certChain=self.certChain)
-                # transport the new packet
                 self.transport.write(new_packet.__serialize__())
-                logger.debug("---Server: Send First Packet END")
+                logger.debug("---Server: Sent Packet")
 
-                # passed here
 
             elif packet.status == 1:
-                logger.debug("---Server: Send Second Packet START")
+                logger.debug("---Server: Start Sending Packet")
                 try:
-                    logger.debug("verify")
+                    logger.debug("Verification")
                     self.certA.public_key().verify(packet.nonceSignature, str(self.nonceB).encode("ASCII"),
                         padding.PSS(mgf=padding.MGF1(hashes.SHA256()),salt_length=padding.PSS.MAX_LENGTH),
                         hashes.SHA256()
                     )
                 except Exception as error:
-                    logger.debug("---Crap Handshake Handler Error: {}, {}".format(self.mode, error))
-                    logger.debug("verify failed !")
+                    logger.debug("---Handshake Handler Error: {}, {}".format(self.mode, error))
+                    logger.debug("Verification Failed")
                     error_packet = HandshakePacket(status=2)
                     self.transport.write(error_packet.__serialize__())
                     self.transport.close()
                     return
-                logger.debug("verify success!")
+                logger.debug("Verification Succeed")
 
                 # generate keys and transfer to a higher protocol
                 digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
@@ -334,125 +323,67 @@ class CRAP(StackingProtocol):
 
                 self.handshake = False
                 self.higherProtocol().connection_made(self.high_transport)
-                try:
-
-                    team = connector[0].split(".")[1]
-                    connection_made_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-                    print('---connect made---')
-                    with open('/home/student_20194/Tianshi_Feng/NetworkTeam4/Game_Bank/tstest.txt', 'a') as f:
-                        print(team)
-                        f.write("team{}".format(team))
-                        print('2222')
-                        f.write("   time:{}".format(connection_made_time))
-                        print('3333')
-                        f.write("   Connection made success!!!")
-                        print('4444')
-                        f.write("\n")
-                    print("---Write in Succeed---")
-                except Exception as error:
-                    logger.debug("---Only one filed, this is not a legal team")
 
                 logger.debug("---Server: Send Second Packet END")
 
 
-        if self.mode == "client":
-            if packet.status == 1:
-                logger.debug("---Client: Send Second Packet START")
-                self.certB = x509.load_pem_x509_certificate(packet.cert, default_backend())
-                # verify the signature
-                try:
-                    logger.debug("Verification")
-                    self.certB.public_key().verify(packet.signature, packet.pk,
-                        padding.PSS(mgf=padding.MGF1(hashes.SHA256()),salt_length=padding.PSS.MAX_LENGTH),
-                        hashes.SHA256()
-                    )
-                    logger.debug("The First Verification Done")
-                    self.certB.public_key().verify(packet.nonceSignature, str(self.nonceA).encode("ASCII"),
-                        padding.PSS(mgf=padding.MGF1(hashes.SHA256()),salt_length=padding.PSS.MAX_LENGTH),
-                        hashes.SHA256()
-                    )
+    def connection_made(self,transport):
+        logger.debug("---Connection Made: {}".format(self.mode))
+        self.transport = transport
+        self.high_transport = CRAPTransport(transport)
+        self.high_transport.connect_protocol(self)
 
-                    certB_address = self.certB.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
-                    if certB_address != self.transport.get_extra_info("peername")[0]:
-                        raise Exception("cert address doesn't match with transport address")
-                    if len(certB_address.split(".")) != 4:
-                        raise Exception("bad cert format")
+        if self.mode = "client":
+            # create a secret key, a public key and a signing key
+            self.private_1 = ec.generate_private_key(ec.SECP384R1(), default_backend())
+            self.public_1 = self.private_1.public_key()
+            self.signing_1 = rsa.generate_private_key(public_exponent = 65537, key_size = 2048, backend = default_backend())
 
-                    cur = self.certB
-                    cur_addr = certB_address
-                    for data in packet.certChain:
-                        cert = x509.load_pem_x509_certificate(data, default_backend())
-                        cert.public_key().verify(cur.signature, cur.tbs_certificate_bytes,
-                            padding.PKCS1v15(),
-                            hashes.SHA256())
+            # get the certificates
+            root_cert = open('/home/student_20194/.playground/connectors/crap/20194_root.cert', 'rb').read()
+            self.certificates_r = cryptography.x509.load_pem_x509_certificate(root_cert, default_backend())            
+            team_cert = open('/home/student_20194/.playground/connectors/crap/csr_team4_signed.cert', 'rb').read()
+            self.certificates_team = cryptography.x509.load_pem_x509_certificate(team_cert, default_backend())
+            team_private_key = open('/home/student_20194/.playground/connectors/crap/key_team4.pem', 'rb').read()
+            self.private_team = serialization.load_pem_private_key(team_private_key,backend=default_backend(),password=b'passphrase')
 
-                        cert_addr = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+            logger.debug("---Client Started Sending Packet")
 
-                        for i in range(2):
-                            if cur_addr[i] != cert_addr[i]:
-                                raise Exception("unmatched perfix")
+            subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, u"20194.4.4.4"),])
+            self.certificate_1 = x509.CertificateBuilder().subject_name(subject).issuer_name(self.team_cert.subject).public_key(self.signing_1.public_key()).serial_number(x509.random_serial_number()).not_valid_before(datetime.datetime.utcnow()).not_valid_after(datetime.datetime.utcnow() + datetime.timedelta(days=10)).add_extension(x509.SubjectAlternativeName([x509.DNSName(u"20194.4.4.4")]),critical=False,).sign(self.private_team, hashes.SHA256(), default_backend())
+            cert1_bytes = self.certificate_1.public_bytes(Encoding.PEM)
 
-                        cur = cert
-                    self.certificates_r.public_key().verify(cur.signature, cur.tbs_certificate_bytes,
-                            padding.PKCS1v15(),
-                            hashes.SHA256())
+            # create a signature for the public key
+            public1_bytes = self.public_1.public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
+            self.signature_1 = self.signing_1.sign(public1_bytes, padding.PSS(mgf = padding.MGF1(hashes.SHA256()), salt_length = padding.PSS.MAX_LENGTH), hashes.SHA256())
 
-                    certificates_r_addr = self.certificates_r.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
-                    if certificates_r_addr[0] != cur_addr [0]:
-                        raise Exception("unmatched perfix")
+            # transport the packet
+            self.certificate_chain = [team_cert]
+            self.nonce_1 = random.randint(0, 2**32)
+            new_packet = HandshakePacket(status = 0, nonce = self.nonce_1, pk = public1_bytes, signature = self.signature_1, cert = cert1_bytes, certChain = self.certificate_chain)
+            self.transport.write(new_packet.__serialize__())
+            logger.debug("---Client Stop Sending Packet")
 
-                except Exception as error:
-                    logger.debug("---Crap Handshake Handler Error: {}, {}".format(self.mode, error))
-                    logger.debug("Verification Failed")
-                    error_packet = HandshakePacket(status=2)
-                    self.transport.write(error_packet.__serialize__())
-                    self.transport.close()
-                    return
+        logger.debug("---Connection Made End: {}".format(self.mode))
 
-                logger.debug("Verification Succeed")
+    def data_received(self, buffer):
+        logger.debug("---Data received")
+        self.deserializer.update(buffer)
+        for p in self.deserializer.nextPackets():
+            print(p)
+            if isinstance(p, HandshakePacket):
+                if self.handshake:
+                    self.handshake_handler(p)
+            elif isinstance(p, DataPacket):
+                if not self.handshake:
+                    self.data_handler(p)
+            elif isinstance(p, ErrorPacket):
+                logger.debug(p.message)
+                logger.debug("---Packet Error")
 
-                # load public key B
-                self.pubkB = load_pem_public_key(packet.pk, backend=default_backend())
-                # create a shared key
-                self.shared_key = self.private1.exchange(ec.ECDH(), self.pubkB)
+    def connection_lost(self, exc):
+        logger.debug("---Connection Lost")
+        self.higherProtocol().connection_lost(exc)
 
-                # sign nonce B
-                self.nonceB = packet.nonce
-                nonceSignatureA = self.signkA.sign(str(self.nonceB).encode('ASCII'),
-                                                    padding.PSS(mgf=padding.MGF1(hashes.SHA256()),
-                                                                salt_length=padding.PSS.MAX_LENGTH),
-                                                    hashes.SHA256())
-                new_packet = HandshakePacket(status=1, nonceSignature=nonceSignatureA)
-                self.transport.write(new_packet.__serialize__())
-
-                # generate keys and transfer to a higher protocol
-                digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
-                digest.update(self.shared_key)
-                hash1 = digest.finalize()
-                self.ivA = hash1[0:12]
-                self.ivB = hash1[12:24]
-                digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
-                digest.update(hash1)
-                hash2 = digest.finalize()
-                self.encA = hash2[0:16]
-                digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
-                digest.update(hash2)
-                hash3 = digest.finalize()
-                self.decA = hash3[0:16]
-
-                logger.debug(self.ivA)
-                logger.debug(self.ivB)
-
-
-                self.handshake = False
-                self.higherProtocol().connection_made(self.high_transport)
-
-                logger.debug("---Client: Send Second Packet END")
-                print("---Client: Handshake Success")
-            else:
-                error_packet = HandshakePacket(status=2)
-                self.transport.write(error_packet.__serialize__())
-                self.transport.close()
-
-SecureClientFactory = StackingProtocolFactory.CreateFactoryType(lambda: POOP(mode="client"),lambda: CRAP(mode="client"))
-SecureServerFactory = StackingProtocolFactory.CreateFactoryType(lambda: POOP(mode="server"),lambda: CRAP(mode="server"))
+SecureClientFactory = StackingProtocolFactory.CreateFactoryType(lambda : POOP(mode="client"), lambda : CRAP(mode="client"))
+SecureServerFactory = StackingProtocolFactory.CreateFactoryType(lambda : POOP(mode="server"), lambda : CRAP(mode="server"))    
